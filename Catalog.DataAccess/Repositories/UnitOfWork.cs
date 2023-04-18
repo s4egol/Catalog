@@ -40,6 +40,6 @@ namespace Catalog.DataAccess.Repositories
             }
         }
 
-        public void Commit() => _dbContext.SaveChanges();
+        public Task CommitAsync() => _dbContext.SaveChangesAsync();
     }
 }

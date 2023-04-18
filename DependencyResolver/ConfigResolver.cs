@@ -1,4 +1,6 @@
-﻿using Catalog.Business.Implementation;
+﻿using Catalog.Business.Filters;
+using Catalog.Business.Filters.Interfaces;
+using Catalog.Business.Implementation;
 using Catalog.Business.Interfaces;
 using Catalog.DataAccess.Interfaces;
 using Catalog.DataAccess.Repositories;
@@ -11,7 +13,7 @@ namespace DependencyResolver
         public static IServiceCollection ConfigureServices(this IServiceCollection services)
         {
             services.AddScoped<ICategoryService, CategoryService>();
-            services.AddScoped<ICatalogService, CatalogService>();
+            services.AddScoped<IProductService, ProductService>();
 
             return services;
         }
@@ -21,6 +23,13 @@ namespace DependencyResolver
             services.AddScoped<ICategoryRepository, CategoryRepository>();
             services.AddScoped<IProductRepository, ProductRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            return services;
+        }
+
+        public static IServiceCollection ConfigureFilters(this IServiceCollection services)
+        {
+            services.AddScoped<IProductFilterBuilder, ProductFilterBuilder>();
 
             return services;
         }

@@ -7,20 +7,17 @@ namespace Catalog.Controllers
 {
     public class CategoryController : Controller
     {
-        private readonly ILogger<CategoryController> _logger;
         private readonly ICategoryService _categoryService;
 
-        public CategoryController(ICategoryService categoryService,
-            ILogger<CategoryController> logger)
+        public CategoryController(ICategoryService categoryService)
         {
             _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var categories = _categoryService.GetAll()
+            var categories = (await _categoryService.GetAllAsync())
                 .Select(category => category.ToMvc())
                 .ToArray();
 
@@ -29,23 +26,23 @@ namespace Catalog.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(CategoryViewModel category)
+        public async Task<IActionResult> Edit(CategoryViewModel category)
         {
-            _categoryService.Update(category?.ToBusiness());
+            await _categoryService.UpdateAsync(category?.ToBusiness());
 
             return RedirectToAction("Index", "Category");
         }
 
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            _categoryService.Delete(id);
+            await _categoryService.DeleteAsync(id);
 
             return RedirectToAction("Index", "Category");
         }
 
-        public IActionResult Details(int id)
+        public async Task<IActionResult> Details(int id)
         {
-            var category = _categoryService.Details(id)
+            var category = (await _categoryService.GetByIdAsync(id))
                 .ToMvc();
 
             return View(category);

@@ -16,44 +16,48 @@ namespace Catalog.DataAccess.Repositories
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
-        public void Add(ProductDal entity)
+        public async Task AddAsync(ProductDal entity)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            ArgumentNullException.ThrowIfNull(entity);
 
-            _dbContext.Products.Add(entity.ToOrm());
+            await _dbContext.Products.AddAsync(entity.ToOrm());
         }
 
-        public void Delete(ProductDal entity)
+        public async Task DeleteAsync(int entityId)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            var product = await GetDbEntityByIdAsync(entityId);
 
-            _dbContext.Products
-                .Where(product => product.Id == entity.Id)
-                .ExecuteDelete();
+            _dbContext.Products.Remove(product);
         }
 
-        public IEnumerable<ProductDal> GetAll()
-            => _dbContext.Products
-                .ToArray()
+        public async Task<IEnumerable<ProductDal>> GetAllAsync()
+            => (await _dbContext.Products
+                .ToArrayAsync())
                 .Select(product => product.ToDal());
 
-        public ProductDal GetById(int id)
-            => GetDbEntityById(id)?.ToDal();
+        public IQueryable<ProductDal> GetAllQuery()
+            => _dbContext.Products
+                .Select(Mappers.Mappers.ToDalExpression)
+                .AsQueryable();
 
-        public void Update(ProductDal entity)
+        public async Task<ProductDal[]> GetByCategoryIdAsync(int categoryId)
+            => (await _dbContext.Products
+                .Where(product => product.CategoryId.HasValue && product.CategoryId.Value == categoryId)
+                .ToArrayAsync())
+                .Select(product => product.ToDal())
+                .ToArray();
+
+        public async Task<ProductDal> GetByIdAsync(int id)
+            => (await GetDbEntityByIdAsync(id))?.ToDal();
+
+        public Task<bool> IsExistsAsync(int id) =>
+            _dbContext.Products.AnyAsync(product => product.Id == id);
+
+        public async Task UpdateAsync(ProductDal entity)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            ArgumentNullException.ThrowIfNull(entity, nameof(entity));
 
-            var product = GetDbEntityById(entity.Id);
+            var product = await GetDbEntityByIdAsync(entity.Id);
 
             product.Name = entity.Name;
             product.Description = entity.Description;
@@ -63,7 +67,8 @@ namespace Catalog.DataAccess.Repositories
             product.CategoryId = entity.CategoryId;
         }
 
-        private Product GetDbEntityById(int id)
-            => _dbContext.Products.SingleOrDefault(product => product.Id == id);
+        private Task<Product> GetDbEntityByIdAsync(int id)
+            => _dbContext.Products
+                .SingleOrDefaultAsync(product => product.Id == id);
     }
 }

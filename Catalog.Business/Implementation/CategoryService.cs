@@ -1,4 +1,5 @@
-﻿using Catalog.Business.Interfaces;
+﻿using Catalog.Business.Exceptions;
+using Catalog.Business.Interfaces;
 using Catalog.Business.Mappers;
 using Catalog.Business.Models;
 using Catalog.DataAccess.Interfaces;
@@ -14,48 +15,100 @@ namespace Catalog.Business.Implementation
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         }
 
-        public CategoryEntity Details(int id)
-            => _unitOfWork.CategoryRepository.GetById(id)?.ToBusiness() ?? throw new KeyNotFoundException(nameof(id));
+        public async Task<CategoryEntity> GetByIdAsync(int id)
+            => (await _unitOfWork.CategoryRepository.GetByIdAsync(id))?.ToBusiness() ?? throw new KeyNotFoundException(nameof(id));
 
-        public void Delete(int id)
+        public async Task DeleteAsync(int id)
         {
-            var category = _unitOfWork.CategoryRepository.GetById(id);
+            var category = (await _unitOfWork.CategoryRepository.GetByIdAsync(id))?.ToBusiness();
 
             if (category == null)
             {
-                throw new KeyNotFoundException(nameof(id));
+                throw new EntityNotFountException(nameof(id));
             }
 
-            _unitOfWork.CategoryRepository.Delete(category);
-            _unitOfWork.Commit();
+            await RemoveEntityReferences(category);
+            await _unitOfWork.CategoryRepository.DeleteAsync(category.Id);
+            await _unitOfWork.CommitAsync();
         }
 
-        public IEnumerable<CategoryEntity> GetAll()
-            => _unitOfWork.CategoryRepository
-                .GetAll()
+        public async Task<IEnumerable<CategoryEntity>> GetAllAsync()
+            => (await _unitOfWork.CategoryRepository
+                .GetAllAsync())
                 .Select(categoryDal => categoryDal.ToBusiness())
                 .ToList();
 
-        public void Update(CategoryEntity entity)
+        public async Task UpdateAsync(CategoryEntity entity)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            await ValidateUpdatedEntityAsync(entity);
 
-            _unitOfWork.CategoryRepository.Update(entity.ToDal());
-            _unitOfWork.Commit();
+            await _unitOfWork.CategoryRepository.UpdateAsync(entity.ToDal());
+            await _unitOfWork.CommitAsync();
         }
 
-        public void Add(CategoryEntity entity)
+        public async Task AddAsync(CategoryEntity entity)
         {
-            if (entity == null)
+            await ValidateAddedEntityAsync(entity);
+
+            await _unitOfWork.CategoryRepository.AddAsync(entity.ToDal());
+            await _unitOfWork.CommitAsync();
+        }
+
+        private async Task RemoveEntityReferences(CategoryEntity entity)
+        {
+            var children = await _unitOfWork.CategoryRepository.GetChildrenAsync(entity.Id);
+
+            foreach (var child in children)
             {
-                throw new ArgumentNullException(nameof(entity));
+                child.ParentId = default(int?);
+                await _unitOfWork.CategoryRepository.UpdateAsync(child);
             }
 
-            _unitOfWork.CategoryRepository.Add(entity.ToDal());
-            _unitOfWork.Commit();
+            var products = await _unitOfWork.ProductRepository.GetByCategoryIdAsync(entity.Id);
+
+            foreach(var product in products)
+            {
+                product.CategoryId = default(int?);
+                await _unitOfWork.ProductRepository.UpdateAsync(product);
+            }
+        }
+
+        private async Task ValidateAddedEntityAsync(CategoryEntity entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            if (entity.ParentId.HasValue)
+            {
+                await ValidateParentEntityAsync(entity);
+            }
+        }
+
+        public async Task ValidateUpdatedEntityAsync(CategoryEntity entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            if (!await _unitOfWork.CategoryRepository.IsExistsAsync(entity.Id))
+            {
+                throw new EntityNotFountException(nameof(entity));
+            }
+
+            if (entity.ParentId.HasValue)
+            {
+                await ValidateParentEntityAsync(entity);
+            }
+        }
+
+        public async Task ValidateParentEntityAsync(CategoryEntity entity)
+        {
+            if (entity.Id == entity.ParentId)
+            {
+                throw new Exception("An entity cannot be a parent to itself");
+            }
+
+            if (!await _unitOfWork.CategoryRepository.IsExistsAsync(entity.ParentId.Value))
+            {
+                throw new EntityNotFountException(nameof(entity.ParentId));
+            }
         }
     }
 }
