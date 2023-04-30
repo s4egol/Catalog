@@ -30,5 +30,15 @@ namespace Catalog.Business.Mappers
                 CategoryId = product.CategoryId,
                 Category = product.Category?.ToDal()
             };
+
+        public static ProductMessage ToMessage(this ProductEntity product)
+            => new()
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                Amount = product.Amount,
+            };
     }
 }
