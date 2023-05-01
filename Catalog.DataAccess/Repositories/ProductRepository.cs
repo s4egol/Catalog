@@ -47,6 +47,7 @@ namespace Catalog.DataAccess.Repositories
                 .WhereCategoryId(query.CategoryId)
                 .Filter;
             var products = await _dbContext.Products
+                .Include(product => product.Category)
                 .Where(filter)
                 .Skip(query.Limit * (query.Page - 1))
                 .Take(query.Limit)
