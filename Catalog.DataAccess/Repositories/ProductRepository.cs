@@ -1,6 +1,4 @@
-﻿using Catalog.DataAccess.DTO;
-using Catalog.DataAccess.Interfaces;
-using Catalog.DataAccess.Mappers;
+﻿using Catalog.DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using ORM.Context;
 using ORM.Entities;
@@ -16,11 +14,11 @@ namespace Catalog.DataAccess.Repositories
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
-        public async Task AddAsync(ProductDal entity)
+        public async Task AddAsync(Product entity)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
-            await _dbContext.Products.AddAsync(entity.ToOrm());
+            await _dbContext.Products.AddAsync(entity);
         }
 
         public async Task DeleteAsync(int entityId)
@@ -30,34 +28,51 @@ namespace Catalog.DataAccess.Repositories
             _dbContext.Products.Remove(product);
         }
 
-        public async Task<IEnumerable<ProductDal>> GetAllAsync()
-            => (await _dbContext.Products
-                .ToArrayAsync())
-                .Select(product => product.ToDal());
+        public async Task<IEnumerable<Product>> GetAllAsync()
+        {
+            var products = await _dbContext.Products
+                .ToArrayAsync();
 
-        public IQueryable<ProductDal> GetAllQuery()
+            return products;
+        }
+
+        public IQueryable<Product> GetAllQuery()
             => _dbContext.Products
-                .Select(Mappers.Mappers.ToDalExpression)
                 .AsQueryable();
 
-        public async Task<ProductDal[]> GetByCategoryIdAsync(int categoryId)
-            => (await _dbContext.Products
+        public async Task<Product[]> GetByCategoryIdAsync(int categoryId)
+        {
+            var products = await _dbContext.Products
                 .Where(product => product.CategoryId.HasValue && product.CategoryId.Value == categoryId)
-                .ToArrayAsync())
-                .Select(product => product.ToDal())
-                .ToArray();
+                .ToArrayAsync();
 
-        public async Task<ProductDal> GetByIdAsync(int id)
-            => (await GetDbEntityByIdAsync(id))?.ToDal();
+            return products;
+        }
 
-        public Task<bool> IsExistsAsync(int id) =>
-            _dbContext.Products.AnyAsync(product => product.Id == id);
+        public async Task<Product> GetByIdAsync(int id)
+        {
+            var product = await GetDbEntityByIdAsync(id);
 
-        public async Task UpdateAsync(ProductDal entity)
+            return product;
+        }
+
+        public async Task<bool> IsExistsAsync(int id)
+        {
+            var isProductExists = await _dbContext.Products.AnyAsync(product => product.Id == id);
+
+            return isProductExists;
+        }
+
+        public async Task UpdateAsync(Product entity)
         {
             ArgumentNullException.ThrowIfNull(entity, nameof(entity));
 
             var product = await GetDbEntityByIdAsync(entity.Id);
+
+            if (product == null)
+            {
+                throw new Exception($"Entity wasn't found {nameof(product)}");
+            }
 
             product.Name = entity.Name;
             product.Description = entity.Description;
@@ -67,8 +82,12 @@ namespace Catalog.DataAccess.Repositories
             product.CategoryId = entity.CategoryId;
         }
 
-        private Task<Product> GetDbEntityByIdAsync(int id)
-            => _dbContext.Products
+        private async Task<Product?> GetDbEntityByIdAsync(int id)
+        {
+            var product = await _dbContext.Products
                 .SingleOrDefaultAsync(product => product.Id == id);
+
+            return product;
+        }
     }
 }

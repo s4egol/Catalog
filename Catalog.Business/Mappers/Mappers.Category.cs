@@ -1,11 +1,11 @@
 ﻿using Catalog.Business.Models;
-using Catalog.DataAccess.DTO;
+using ORM.Entities;
 
 namespace Catalog.Business.Mappers
 {
     public static partial class Mappers
     {
-        public static CategoryEntity ToBusiness(this CategoryDal category)
+        public static CategoryEntity ToBusiness(this Category category)
             => new()
             {
                 Id = category.Id,
@@ -15,7 +15,7 @@ namespace Catalog.Business.Mappers
                 Parent = category.Parent?.ToBusiness(),
             };
 
-        public static CategoryDal ToDal(this CategoryEntity category)
+        public static Category ToDal(this CategoryEntity category)
             => new()
             {
                 Id = category.Id,

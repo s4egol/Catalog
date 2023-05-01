@@ -1,6 +1,4 @@
-﻿using Catalog.DataAccess.DTO;
-using Catalog.DataAccess.Interfaces;
-using Catalog.DataAccess.Mappers;
+﻿using Catalog.DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using ORM.Context;
 using ORM.Entities;
@@ -16,11 +14,11 @@ namespace Catalog.DataAccess.Repositories
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
-        public async Task AddAsync(CategoryDal entity)
+        public async Task AddAsync(Category entity)
         {
             ArgumentNullException.ThrowIfNull(entity);
 
-            await _dbContext.Categories.AddAsync(entity.ToOrm());
+            await _dbContext.Categories.AddAsync(entity);
         }
 
         public async Task DeleteAsync(int entityId)
@@ -32,35 +30,48 @@ namespace Catalog.DataAccess.Repositories
             _dbContext.Categories.Remove(category);
         }
 
-        public async Task<IEnumerable<CategoryDal>> GetAllAsync()
+        public async Task<IEnumerable<Category>> GetAllAsync()
         {
             var categories = await _dbContext.Categories
                 .Include(category => category.Parent)
                 .ToArrayAsync();
 
-            return categories.Select(category => category.ToDal());
+            return categories;
         }
 
-        public async Task<CategoryDal> GetByIdAsync(int id)
-            => (await GetEntitiesByIdsQuery(new[] { id }).SingleOrDefaultAsync())?.ToDal();
+        public async Task<Category> GetByIdAsync(int id)
+        {
+            var category = await GetEntitiesByIdsQuery(new[] { id })
+                .SingleOrDefaultAsync();
 
-        public async Task<CategoryDal[]> GetByIdAsync(int[] ids)
-            => (await GetEntitiesByIdsQuery(ids)
-                .ToArrayAsync())
-                .Select(category => category.ToDal())
-                .ToArray();
+            return category;
+        }
 
-        public async Task<CategoryDal[]> GetChildrenAsync(int id)
-            => (await _dbContext.Categories
+        public async Task<Category[]> GetByIdAsync(int[] ids)
+        {
+            var categories = await GetEntitiesByIdsQuery(ids)
+                .ToArrayAsync();
+
+            return categories;
+        }
+
+        public async Task<Category[]> GetChildrenAsync(int id)
+        {
+            var categories = await _dbContext.Categories
                 .Where(category => category.ParentId.HasValue && category.ParentId.Value == id)
-                .ToArrayAsync())
-                .Select(category => category.ToDal())
-                .ToArray();
+                .ToArrayAsync();
 
-        public Task<bool> IsExistsAsync(int id)
-            => _dbContext.Categories.AnyAsync(category => category.Id == id);
+            return categories;
+        }
 
-        public async Task UpdateAsync(CategoryDal entity)
+        public async Task<bool> IsExistsAsync(int id)
+        {
+            var isCategoryExists = await _dbContext.Categories.AnyAsync(category => category.Id == id);
+
+            return isCategoryExists;
+        }
+
+        public async Task UpdateAsync(Category entity)
         {
             ArgumentNullException.ThrowIfNull(entity, nameof(entity));
 
@@ -75,8 +86,12 @@ namespace Catalog.DataAccess.Repositories
         }
 
         private IQueryable<Category> GetEntitiesByIdsQuery(int[] ids)
-            => _dbContext.Categories
+        {
+            var query = _dbContext.Categories
                 .Include(category => category.Parent)
                 .Where(category => ids.Contains(category.Id));
+
+            return query;
+        }
     }
 }

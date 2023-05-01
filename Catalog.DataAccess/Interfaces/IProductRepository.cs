@@ -1,11 +1,11 @@
-﻿using Catalog.DataAccess.DTO;
+﻿using ORM.Entities;
 
 namespace Catalog.DataAccess.Interfaces
 {
-    public interface IProductRepository : IRepository<ProductDal>
+    public interface IProductRepository : IRepository<Product>
     {
-        Task<ProductDal[]> GetByCategoryIdAsync(int categoryId);
+        Task<Product[]> GetByCategoryIdAsync(int categoryId);
         Task<bool> IsExistsAsync(int id);
-        IQueryable<ProductDal> GetAllQuery();
+        IQueryable<Product> GetAllQuery();
     }
 }
