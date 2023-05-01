@@ -1,11 +1,12 @@
-﻿using Catalog.DataAccess.DTO;
+﻿using Catalog.DataAccess.Models.Filters;
+using ORM.Entities;
 
 namespace Catalog.DataAccess.Interfaces
 {
-    public interface IProductRepository : IRepository<ProductDal>
+    public interface IProductRepository : IRepository<Product>
     {
-        Task<ProductDal[]> GetByCategoryIdAsync(int categoryId);
+        Task<Product[]> GetByCategoryIdAsync(int categoryId);
         Task<bool> IsExistsAsync(int id);
-        IQueryable<ProductDal> GetAllQuery();
+        Task<IEnumerable<Product>> GetWithFiltrationAsync(ProductFilter query);
     }
 }

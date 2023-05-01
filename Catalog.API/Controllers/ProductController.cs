@@ -1,8 +1,8 @@
 ﻿using AutoMapper;
-using Catalog.API.Mappers;
 using Catalog.API.Models.Product;
 using Catalog.API.Models.Product.Queries;
 using Catalog.Business.Interfaces;
+using Catalog.Business.Models;
 using Catalog.Business.Models.Queries;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +13,12 @@ namespace Catalog.API.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
+        private readonly IMapper _mapper;
 
-        public ProductController(IProductService productService)
+        public ProductController(IProductService productService, IMapper mapper)
         {
             _productService = productService ?? throw new ArgumentNullException(nameof(productService));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         [HttpGet]
@@ -24,12 +26,10 @@ namespace Catalog.API.Controllers
         {
             ArgumentNullException.ThrowIfNull(query, nameof(query));
 
-            return (await _productService.GetAllAsync(new ProductQueryEntity
-            {
-                CategoryId = query.CategoryId,
-                Page = query.Page,
-            }))
-            .Select(product => product.ToView());
+            var products = (await _productService.GetAllAsync(_mapper.Map<ProductQueryEntity>(query)))
+                .Select(_mapper.Map<ProductViewModel>);
+
+            return products;
         }
 
         [HttpPost]
@@ -37,10 +37,7 @@ namespace Catalog.API.Controllers
         {
             ArgumentNullException.ThrowIfNull(productContent, nameof(productContent));
 
-            var configuration = new MapperConfiguration(cfg => cfg.CreateMap<ProductContentViewModel, ProductViewModel>());
-            var mapper = new Mapper(configuration);
-
-            return _productService.AddAsync(mapper.Map<ProductViewModel>(productContent)?.ToBusiness());
+            return _productService.AddAsync(_mapper.Map<ProductEntity>(productContent));
         }
 
         [HttpDelete]
@@ -51,7 +48,7 @@ namespace Catalog.API.Controllers
         {
             ArgumentNullException.ThrowIfNull(product, nameof(product));
 
-            return _productService.UpdateAsync(product.ToBusiness());
+            return _productService.UpdateAsync(_mapper.Map<ProductEntity>(product));
         }
     }
 }

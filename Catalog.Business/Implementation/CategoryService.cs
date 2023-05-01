@@ -1,48 +1,58 @@
-﻿using Catalog.Business.Exceptions;
+﻿using AutoMapper;
+using Catalog.Business.Exceptions;
 using Catalog.Business.Interfaces;
-using Catalog.Business.Mappers;
 using Catalog.Business.Models;
 using Catalog.DataAccess.Interfaces;
+using ORM.Entities;
 
 namespace Catalog.Business.Implementation
 {
     public class CategoryService : ICategoryService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public CategoryService(IUnitOfWork unitOfWork)
+        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         public async Task<CategoryEntity> GetByIdAsync(int id)
-            => (await _unitOfWork.CategoryRepository.GetByIdAsync(id))?.ToBusiness() ?? throw new KeyNotFoundException(nameof(id));
+        {
+            var category = await _unitOfWork.CategoryRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException(nameof(id));
+
+            return _mapper.Map<CategoryEntity>(category);
+        }
 
         public async Task DeleteAsync(int id)
         {
-            var category = (await _unitOfWork.CategoryRepository.GetByIdAsync(id))?.ToBusiness();
+            var category = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
 
             if (category == null)
             {
                 throw new EntityNotFountException(nameof(id));
             }
 
-            await RemoveEntityReferences(category);
+            await RemoveEntityReferences(_mapper.Map<CategoryEntity>(category));
             await _unitOfWork.CategoryRepository.DeleteAsync(category.Id);
             await _unitOfWork.CommitAsync();
         }
 
         public async Task<IEnumerable<CategoryEntity>> GetAllAsync()
-            => (await _unitOfWork.CategoryRepository
-                .GetAllAsync())
-                .Select(categoryDal => categoryDal.ToBusiness())
-                .ToList();
+        {
+            var categories = await _unitOfWork.CategoryRepository
+                .GetAllAsync();
+
+            return categories
+                .Select(_mapper.Map<CategoryEntity>);
+        }
 
         public async Task UpdateAsync(CategoryEntity entity)
         {
             await ValidateUpdatedEntityAsync(entity);
 
-            await _unitOfWork.CategoryRepository.UpdateAsync(entity.ToDal());
+            await _unitOfWork.CategoryRepository.UpdateAsync(_mapper.Map<Category>(entity));
             await _unitOfWork.CommitAsync();
         }
 
@@ -50,7 +60,7 @@ namespace Catalog.Business.Implementation
         {
             await ValidateAddedEntityAsync(entity);
 
-            await _unitOfWork.CategoryRepository.AddAsync(entity.ToDal());
+            await _unitOfWork.CategoryRepository.AddAsync(_mapper.Map<Category>(entity));
             await _unitOfWork.CommitAsync();
         }
 
@@ -66,7 +76,7 @@ namespace Catalog.Business.Implementation
 
             var products = await _unitOfWork.ProductRepository.GetByCategoryIdAsync(entity.Id);
 
-            foreach(var product in products)
+            foreach (var product in products)
             {
                 product.CategoryId = default(int?);
                 await _unitOfWork.ProductRepository.UpdateAsync(product);

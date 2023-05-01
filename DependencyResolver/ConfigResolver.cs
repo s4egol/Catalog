@@ -1,8 +1,8 @@
 ﻿using Catalog.Business.Configuration;
-using Catalog.Business.Filters;
-using Catalog.Business.Filters.Interfaces;
 using Catalog.Business.Implementation;
 using Catalog.Business.Interfaces;
+using Catalog.DataAccess.Filters;
+using Catalog.DataAccess.Filters.Interfaces;
 using Catalog.DataAccess.Interfaces;
 using Catalog.DataAccess.Repositories;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
-using Catalog.API.Mappers;
 using Catalog.API.Models.Category;
 using Catalog.Business.Interfaces;
+using Catalog.Business.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Catalog.API.Controllers
@@ -11,26 +11,29 @@ namespace Catalog.API.Controllers
     public class CategoryController : ControllerBase
     {
         private readonly ICategoryService _categoryService;
+        private readonly IMapper _mapper;
 
-        public CategoryController(ICategoryService categoryService)
+        public CategoryController(ICategoryService categoryService, IMapper mapper)
         {
             _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         [HttpGet]
         public async Task<IEnumerable<CategoryViewModel>> GetAll()
-            => (await _categoryService.GetAllAsync())
-                    .Select(category => category.ToView());
+        {
+            var categories = (await _categoryService.GetAllAsync())
+                .Select(_mapper.Map<CategoryViewModel>);
+
+            return categories;
+        }
 
         [HttpPost]
         public Task Add(CategoryContentViewModel categoryContent)
         {
             ArgumentNullException.ThrowIfNull(categoryContent, nameof(categoryContent));
 
-            var configuration = new MapperConfiguration(cfg => cfg.CreateMap<CategoryContentViewModel, CategoryViewModel>());
-            var mapper = new Mapper(configuration);
-
-            return _categoryService.AddAsync(mapper.Map<CategoryViewModel>(categoryContent)?.ToBusiness());
+            return _categoryService.AddAsync(_mapper.Map<CategoryEntity>(categoryContent));
         }
 
         [HttpPut]
@@ -38,7 +41,7 @@ namespace Catalog.API.Controllers
         {
             ArgumentNullException.ThrowIfNull(category, nameof(category));
 
-            return _categoryService.UpdateAsync(category.ToBusiness());
+            return _categoryService.UpdateAsync(_mapper.Map<CategoryEntity>(category));
         }
 
         [HttpDelete]

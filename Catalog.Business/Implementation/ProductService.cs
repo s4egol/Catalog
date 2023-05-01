@@ -1,30 +1,30 @@
-﻿using Catalog.Business.Configuration;
+﻿using AutoMapper;
+using Catalog.Business.Configuration;
 using Catalog.Business.Exceptions;
-using Catalog.Business.Filters.Interfaces;
 using Catalog.Business.Interfaces;
-using Catalog.Business.Mappers;
 using Catalog.Business.Models;
 using Catalog.Business.Models.Queries;
 using Catalog.DataAccess.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Catalog.DataAccess.Models.Filters;
+using ORM.Entities;
 
 namespace Catalog.Business.Implementation
 {
     public class ProductService : IProductService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IProductFilterBuilder _productFilterBuilder;
         private readonly IRabbitMqService _rabbitMqService;
         private readonly AppSettings _appSettings;
+        private readonly IMapper _mapper;
 
         public ProductService(IUnitOfWork unitOfWork,
             IRabbitMqService rabbitMqService,
-            IProductFilterBuilder productFilterBuilder,
-            AppSettings appSettings)
+            AppSettings appSettings,
+            IMapper mapper)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _rabbitMqService = rabbitMqService ?? throw new ArgumentNullException(nameof(rabbitMqService));
-            _productFilterBuilder = productFilterBuilder ?? throw new ArgumentNullException(nameof(productFilterBuilder));
             _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
         }
 
@@ -32,7 +32,7 @@ namespace Catalog.Business.Implementation
         {
             await ValidateAddedEntityAsync(entity);
 
-            await _unitOfWork.ProductRepository.AddAsync(entity.ToDal());
+            await _unitOfWork.ProductRepository.AddAsync(_mapper.Map<Product>(entity));
             await _unitOfWork.CommitAsync();
         }
 
@@ -46,7 +46,7 @@ namespace Catalog.Business.Implementation
         {
             await ValidateUpdatedEntityAsync(entity);
 
-            await _unitOfWork.ProductRepository.UpdateAsync(entity.ToDal());
+            await _unitOfWork.ProductRepository.UpdateAsync(_mapper.Map<Product>(entity));
             
             SendMessageInQueue(entity);
 
@@ -54,21 +54,18 @@ namespace Catalog.Business.Implementation
         }
 
         public async Task<ProductEntity> GetAsync(int id)
-            => (await _unitOfWork.ProductRepository.GetByIdAsync(id))?.ToBusiness() ?? throw new KeyNotFoundException(nameof(id));
+        {
+            var product = await _unitOfWork.ProductRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException(nameof(id));
+
+            return _mapper.Map<ProductEntity>(product);
+        }
 
         public async Task<IEnumerable<ProductEntity>> GetAllAsync(ProductQueryEntity query)
         {
-            var filter = _productFilterBuilder
-                .WhereCategoryId(query.CategoryId)
-                .Filter;
+            var products = await _unitOfWork.ProductRepository
+                .GetWithFiltrationAsync(_mapper.Map<ProductFilter>(query));
 
-            return (await _unitOfWork.ProductRepository
-                .GetAllQuery()
-                .Where(filter)
-                .Skip(query.Limit * (query.Page - 1))
-                .Take(query.Limit)
-                .ToArrayAsync())
-                .Select(productDal => productDal.ToBusiness());
+            return products.Select(_mapper.Map<ProductEntity>);
         }
 
         private async Task ValidateUpdatedEntityAsync(ProductEntity product)
@@ -84,7 +81,7 @@ namespace Catalog.Business.Implementation
             {
                 throw new EntityNotFountException(nameof(product.CategoryId.Value));
             }
-        } 
+        }
 
         private async Task ValidateAddedEntityAsync(ProductEntity product)
         {
@@ -103,7 +100,8 @@ namespace Catalog.Business.Implementation
         {
             try
             {
-                _rabbitMqService.SendMessage(_appSettings.RabbitMqServerSettings.Queue, product.ToMessage());
+                _rabbitMqService.SendMessage(_appSettings.RabbitMqServerSettings.Queue,
+                    _mapper.Map<ProductMessage>(product));
             }
             catch(Exception ex)
             {
