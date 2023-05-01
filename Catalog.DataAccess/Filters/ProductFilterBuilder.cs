@@ -1,8 +1,8 @@
-﻿using Catalog.Business.Filters.Interfaces;
+﻿using Catalog.DataAccess.Filters.Interfaces;
 using ORM.Entities;
 using System.Linq.Expressions;
 
-namespace Catalog.Business.Filters
+namespace Catalog.DataAccess.Filters
 {
     public sealed class ProductFilterBuilder : IProductFilterBuilder
     {

@@ -1,4 +1,5 @@
-﻿using ORM.Entities;
+﻿using Catalog.DataAccess.Models.Filters;
+using ORM.Entities;
 
 namespace Catalog.DataAccess.Interfaces
 {
@@ -6,6 +7,6 @@ namespace Catalog.DataAccess.Interfaces
     {
         Task<Product[]> GetByCategoryIdAsync(int categoryId);
         Task<bool> IsExistsAsync(int id);
-        IQueryable<Product> GetAllQuery();
+        Task<IEnumerable<Product>> GetWithFiltrationAsync(ProductFilter query);
     }
 }

@@ -1,24 +1,20 @@
 ﻿using Catalog.Business.Exceptions;
-using Catalog.Business.Filters.Interfaces;
 using Catalog.Business.Interfaces;
 using Catalog.Business.Mappers;
 using Catalog.Business.Models;
 using Catalog.Business.Models.Queries;
 using Catalog.DataAccess.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Catalog.DataAccess.Models.Filters;
 
 namespace Catalog.Business.Implementation
 {
     public class ProductService : IProductService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IProductFilterBuilder _productFilterBuilder;
 
-        public ProductService(IUnitOfWork unitOfWork,
-            IProductFilterBuilder productFilterBuilder)
+        public ProductService(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
-            _productFilterBuilder = productFilterBuilder ?? throw new ArgumentNullException(nameof(productFilterBuilder));
         }
 
         public async Task AddAsync(ProductEntity entity)
@@ -48,17 +44,15 @@ namespace Catalog.Business.Implementation
 
         public async Task<IEnumerable<ProductEntity>> GetAllAsync(ProductQueryEntity query)
         {
-            var filter = _productFilterBuilder
-                .WhereCategoryId(query.CategoryId)
-                .Filter;
+            var products = await _unitOfWork.ProductRepository
+                .GetWithFiltrationAsync(new ProductFilter
+                {
+                    Limit = query.Limit,
+                    Page = query.Page,
+                    CategoryId = query.CategoryId,
+                });
 
-            return (await _unitOfWork.ProductRepository
-                .GetAllQuery()
-                .Where(filter)
-                .Skip(query.Limit * (query.Page - 1))
-                .Take(query.Limit)
-                .ToArrayAsync())
-                .Select(productDal => productDal.ToBusiness());
+            return products.Select(productDal => productDal.ToBusiness());
         }
 
         private async Task ValidateUpdatedEntityAsync(ProductEntity product)
@@ -74,7 +68,7 @@ namespace Catalog.Business.Implementation
             {
                 throw new EntityNotFountException(nameof(product.CategoryId.Value));
             }
-        } 
+        }
 
         private async Task ValidateAddedEntityAsync(ProductEntity product)
         {

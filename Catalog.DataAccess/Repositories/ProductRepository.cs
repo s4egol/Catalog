@@ -1,4 +1,6 @@
-﻿using Catalog.DataAccess.Interfaces;
+﻿using Catalog.DataAccess.Filters.Interfaces;
+using Catalog.DataAccess.Interfaces;
+using Catalog.DataAccess.Models.Filters;
 using Microsoft.EntityFrameworkCore;
 using ORM.Context;
 using ORM.Entities;
@@ -8,10 +10,13 @@ namespace Catalog.DataAccess.Repositories
     public class ProductRepository : IProductRepository
     {
         private readonly CatalogContext _dbContext;
+        private readonly IProductFilterBuilder _productFilterBuilder;
 
-        public ProductRepository(CatalogContext dbContext)
+        public ProductRepository(CatalogContext dbContext,
+            IProductFilterBuilder productFilterBuilder)
         {
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+            _productFilterBuilder = productFilterBuilder ?? throw new ArgumentNullException(nameof(productFilterBuilder));
         }
 
         public async Task AddAsync(Product entity)
@@ -36,9 +41,19 @@ namespace Catalog.DataAccess.Repositories
             return products;
         }
 
-        public IQueryable<Product> GetAllQuery()
-            => _dbContext.Products
-                .AsQueryable();
+        public async Task<IEnumerable<Product>> GetWithFiltrationAsync(ProductFilter query)
+        {
+            var filter = _productFilterBuilder
+                .WhereCategoryId(query.CategoryId)
+                .Filter;
+            var products = await _dbContext.Products
+                .Where(filter)
+                .Skip(query.Limit * (query.Page - 1))
+                .Take(query.Limit)
+                .ToArrayAsync();
+
+            return products;
+        }
 
         public async Task<Product[]> GetByCategoryIdAsync(int categoryId)
         {
