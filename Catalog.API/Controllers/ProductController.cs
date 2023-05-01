@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Catalog.API.Models;
 using Catalog.API.Models.Product;
 using Catalog.API.Models.Product.Queries;
 using Catalog.Business.Exceptions;
@@ -38,7 +39,14 @@ namespace Catalog.API.Controllers
             var products = (await _productService.GetAllAsync(_mapper.Map<ProductQueryEntity>(query)))
                 .Select(_mapper.Map<ProductViewModel>);
 
-            return Ok(products);
+            return Ok(new ProductWithHypermedia
+            {
+                Products = products,
+                Links = new Dictionary<string, string>()
+                {
+                    { "Next page", @$"/api/product-management?page={query.Page + 1}{(query.CategoryId.HasValue ? $"&category-id={query.CategoryId.Value}" : string.Empty)}" }
+                }
+            });
         }
 
         [HttpPost]
