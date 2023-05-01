@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
 using Catalog.API.Models.Product;
 using Catalog.API.Models.Product.Queries;
+using Catalog.Business.Exceptions;
 using Catalog.Business.Interfaces;
 using Catalog.Business.Models;
 using Catalog.Business.Models.Queries;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.Swagger.Annotations;
 
 namespace Catalog.API.Controllers
 {
@@ -22,33 +24,76 @@ namespace Catalog.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IEnumerable<ProductViewModel>> GetAll([FromQuery] ProductQuery query)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status200OK, "Products were loaded")]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, "Bad input")]
+        public async Task<IActionResult> GetAll([FromQuery] ProductQuery query)
         {
-            ArgumentNullException.ThrowIfNull(query, nameof(query));
+            if (query == null)
+            {
+                return BadRequest();
+            }
 
             var products = (await _productService.GetAllAsync(_mapper.Map<ProductQueryEntity>(query)))
                 .Select(_mapper.Map<ProductViewModel>);
 
-            return products;
+            return Ok(products);
         }
 
         [HttpPost]
-        public Task Add(ProductContentViewModel productContent)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, "Product was added")]
+        [SwaggerResponse(StatusCodes.Status404NotFound, "Category wasn't found")]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, "Bad input")]
+        public async Task<IActionResult> Add(ProductContentViewModel productContent)
         {
-            ArgumentNullException.ThrowIfNull(productContent, nameof(productContent));
+            if (productContent == null)
+            {
+                return BadRequest();
+            }
 
-            return _productService.AddAsync(_mapper.Map<ProductEntity>(productContent));
+            try
+            {
+                await _productService.AddAsync(_mapper.Map<ProductEntity>(productContent));
+            }
+            catch (EntityNotFountException)
+            {
+                return NotFound();
+            }
+
+            return Ok();
         }
 
         [HttpDelete]
         public Task Delete(int id) => _productService.DeleteAsync(id);
 
         [HttpPut]
-        public Task Update(ProductViewModel product)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, "Product was updated")]
+        [SwaggerResponse(StatusCodes.Status404NotFound, "Product or category wasn't found")]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, "Bad input")]
+        public async Task<IActionResult> Update(ProductViewModel product)
         {
-            ArgumentNullException.ThrowIfNull(product, nameof(product));
+            if (product == null)
+            {
+                return BadRequest();
+            }
 
-            return _productService.UpdateAsync(_mapper.Map<ProductEntity>(product));
+            try
+            {
+                await _productService.UpdateAsync(_mapper.Map<ProductEntity>(product));
+            }
+            catch (EntityNotFountException)
+            {
+                return NotFound();
+            }
+
+            return Ok();
         }
     }
 }
