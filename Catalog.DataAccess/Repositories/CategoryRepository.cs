@@ -1,6 +1,4 @@
-﻿using Catalog.DataAccess.DTO;
-using Catalog.DataAccess.Interfaces;
-using Catalog.DataAccess.Mappers;
+﻿using Catalog.DataAccess.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using ORM.Context;
 using ORM.Entities;
@@ -16,48 +14,69 @@ namespace Catalog.DataAccess.Repositories
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
-        public void Add(CategoryDal entity)
+        public async Task AddAsync(Category entity)
         {
-            if (entity == null)
-            { 
-                throw new ArgumentNullException(nameof(entity));
-            }
+            ArgumentNullException.ThrowIfNull(entity);
 
-            _dbContext.Categories.Add(entity.ToOrm());
+            await _dbContext.Categories.AddAsync(entity);
         }
 
-        public void Delete(CategoryDal entity)
+        public async Task DeleteAsync(int entityId)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            var category = await _dbContext.Categories
+                .Where(category => category.Id == entityId)
+                .SingleAsync();
 
-            _dbContext.Categories
-                .Where(category => category.Id == entity.Id)
-                .ExecuteDelete();
+            _dbContext.Categories.Remove(category);
         }
 
-        public IEnumerable<CategoryDal> GetAll()
+        public async Task<IEnumerable<Category>> GetAllAsync()
         {
-            var categories = _dbContext.Categories
+            var categories = await _dbContext.Categories
                 .Include(category => category.Parent)
-                .ToArray();
+                .ToArrayAsync();
 
-            return categories.Select(category => category.ToDal());
+            return categories;
         }
 
-        public CategoryDal GetById(int id)
-            => GetDbEntityById(id)?.ToDal();
-
-        public void Update(CategoryDal entity)
+        public async Task<Category> GetByIdAsync(int id)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            var category = await GetEntitiesByIdsQuery(new[] { id })
+                .SingleOrDefaultAsync();
 
-            var category = GetDbEntityById(entity.Id);
+            return category;
+        }
+
+        public async Task<Category[]> GetByIdAsync(int[] ids)
+        {
+            var categories = await GetEntitiesByIdsQuery(ids)
+                .ToArrayAsync();
+
+            return categories;
+        }
+
+        public async Task<Category[]> GetChildrenAsync(int id)
+        {
+            var categories = await _dbContext.Categories
+                .Where(category => category.ParentId.HasValue && category.ParentId.Value == id)
+                .ToArrayAsync();
+
+            return categories;
+        }
+
+        public async Task<bool> IsExistsAsync(int id)
+        {
+            var isCategoryExists = await _dbContext.Categories.AnyAsync(category => category.Id == id);
+
+            return isCategoryExists;
+        }
+
+        public async Task UpdateAsync(Category entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity, nameof(entity));
+
+            var category = await GetEntitiesByIdsQuery(new[] { entity.Id })
+                .SingleOrDefaultAsync();
 
             category.Name = entity.Name;
             category.Image = entity.Image;
@@ -66,9 +85,13 @@ namespace Catalog.DataAccess.Repositories
             _dbContext.Categories.Update(category);
         }
 
-        private Category GetDbEntityById(int id)
-            => _dbContext.Categories
+        private IQueryable<Category> GetEntitiesByIdsQuery(int[] ids)
+        {
+            var query = _dbContext.Categories
                 .Include(category => category.Parent)
-                .SingleOrDefault(category => category.Id == id);
+                .Where(category => ids.Contains(category.Id));
+
+            return query;
+        }
     }
 }

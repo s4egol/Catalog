@@ -1,4 +1,5 @@
-﻿using Catalog.DataAccess.Interfaces;
+﻿using Catalog.DataAccess.Filters.Interfaces;
+using Catalog.DataAccess.Interfaces;
 using ORM.Context;
 
 namespace Catalog.DataAccess.Repositories
@@ -6,12 +7,15 @@ namespace Catalog.DataAccess.Repositories
     public class UnitOfWork : IUnitOfWork
     {
         private readonly CatalogContext _dbContext;
+        private IProductFilterBuilder _productFilterBuilder;
         private ICategoryRepository _categoryRepository;
         private IProductRepository _productRepository;
 
-        public UnitOfWork(CatalogContext dbContext)
+        public UnitOfWork(CatalogContext dbContext,
+            IProductFilterBuilder productFilterBuilder)
         {
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+            _productFilterBuilder = productFilterBuilder ?? throw new ArgumentNullException(nameof(productFilterBuilder));
         }
 
         public ICategoryRepository CategoryRepository
@@ -33,13 +37,13 @@ namespace Catalog.DataAccess.Repositories
             {
                 if (_productRepository == null)
                 {
-                    _productRepository = new ProductRepository(_dbContext);
+                    _productRepository = new ProductRepository(_dbContext, _productFilterBuilder);
                 }
 
                 return _productRepository;
             }
         }
 
-        public void Commit() => _dbContext.SaveChanges();
+        public Task CommitAsync() => _dbContext.SaveChangesAsync();
     }
 }

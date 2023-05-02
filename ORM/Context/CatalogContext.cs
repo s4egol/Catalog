@@ -6,7 +6,7 @@ namespace ORM.Context
     {
         public CatalogContext(DbContextOptions<CatalogContext> options) : base(options)
         {
-            Database.EnsureDeleted();
+            //Database.EnsureDeleted();
             Database.EnsureCreated();
         }
     }

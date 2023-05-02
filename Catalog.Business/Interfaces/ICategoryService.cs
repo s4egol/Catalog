@@ -4,10 +4,10 @@ namespace Catalog.Business.Interfaces
 {
     public interface ICategoryService
     {
-        CategoryEntity Details(int id);
-        void Update(CategoryEntity entity);
-        void Add(CategoryEntity entity);
-        void Delete(int id);
-        IEnumerable<CategoryEntity> GetAll();
+        Task<CategoryEntity> GetByIdAsync(int id);
+        Task UpdateAsync(CategoryEntity entity);
+        Task AddAsync(CategoryEntity entity);
+        Task DeleteAsync(int id);
+        Task<IEnumerable<CategoryEntity>> GetAllAsync();
     }
 }

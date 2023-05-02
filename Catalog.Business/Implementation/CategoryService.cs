@@ -1,61 +1,124 @@
-﻿using Catalog.Business.Interfaces;
-using Catalog.Business.Mappers;
+﻿using AutoMapper;
+using Catalog.Business.Exceptions;
+using Catalog.Business.Interfaces;
 using Catalog.Business.Models;
 using Catalog.DataAccess.Interfaces;
+using ORM.Entities;
 
 namespace Catalog.Business.Implementation
 {
     public class CategoryService : ICategoryService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public CategoryService(IUnitOfWork unitOfWork)
+        public CategoryService(IUnitOfWork unitOfWork, IMapper mapper)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        public CategoryEntity Details(int id)
-            => _unitOfWork.CategoryRepository.GetById(id)?.ToBusiness() ?? throw new KeyNotFoundException(nameof(id));
-
-        public void Delete(int id)
+        public async Task<CategoryEntity> GetByIdAsync(int id)
         {
-            var category = _unitOfWork.CategoryRepository.GetById(id);
+            var category = await _unitOfWork.CategoryRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException(nameof(id));
+
+            return _mapper.Map<CategoryEntity>(category);
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            var category = await _unitOfWork.CategoryRepository.GetByIdAsync(id);
 
             if (category == null)
             {
-                throw new KeyNotFoundException(nameof(id));
+                throw new EntityNotFountException(nameof(id));
             }
 
-            _unitOfWork.CategoryRepository.Delete(category);
-            _unitOfWork.Commit();
+            await RemoveEntityReferences(_mapper.Map<CategoryEntity>(category));
+            await _unitOfWork.CategoryRepository.DeleteAsync(category.Id);
+            await _unitOfWork.CommitAsync();
         }
 
-        public IEnumerable<CategoryEntity> GetAll()
-            => _unitOfWork.CategoryRepository
-                .GetAll()
-                .Select(categoryDal => categoryDal.ToBusiness())
-                .ToList();
-
-        public void Update(CategoryEntity entity)
+        public async Task<IEnumerable<CategoryEntity>> GetAllAsync()
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            var categories = await _unitOfWork.CategoryRepository
+                .GetAllAsync();
 
-            _unitOfWork.CategoryRepository.Update(entity.ToDal());
-            _unitOfWork.Commit();
+            return categories
+                .Select(_mapper.Map<CategoryEntity>);
         }
 
-        public void Add(CategoryEntity entity)
+        public async Task UpdateAsync(CategoryEntity entity)
         {
-            if (entity == null)
+            await ValidateUpdatedEntityAsync(entity);
+
+            await _unitOfWork.CategoryRepository.UpdateAsync(_mapper.Map<Category>(entity));
+            await _unitOfWork.CommitAsync();
+        }
+
+        public async Task AddAsync(CategoryEntity entity)
+        {
+            await ValidateAddedEntityAsync(entity);
+
+            await _unitOfWork.CategoryRepository.AddAsync(_mapper.Map<Category>(entity));
+            await _unitOfWork.CommitAsync();
+        }
+
+        private async Task RemoveEntityReferences(CategoryEntity entity)
+        {
+            var children = await _unitOfWork.CategoryRepository.GetChildrenAsync(entity.Id);
+
+            foreach (var child in children)
             {
-                throw new ArgumentNullException(nameof(entity));
+                child.ParentId = default(int?);
+                await _unitOfWork.CategoryRepository.UpdateAsync(child);
             }
 
-            _unitOfWork.CategoryRepository.Add(entity.ToDal());
-            _unitOfWork.Commit();
+            var products = await _unitOfWork.ProductRepository.GetByCategoryIdAsync(entity.Id);
+
+            foreach (var product in products)
+            {
+                product.CategoryId = default(int?);
+                await _unitOfWork.ProductRepository.UpdateAsync(product);
+            }
+        }
+
+        private async Task ValidateAddedEntityAsync(CategoryEntity entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            if (entity.ParentId.HasValue)
+            {
+                await ValidateParentEntityAsync(entity);
+            }
+        }
+
+        public async Task ValidateUpdatedEntityAsync(CategoryEntity entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            if (!await _unitOfWork.CategoryRepository.IsExistsAsync(entity.Id))
+            {
+                throw new EntityNotFountException(nameof(entity));
+            }
+
+            if (entity.ParentId.HasValue)
+            {
+                await ValidateParentEntityAsync(entity);
+            }
+        }
+
+        public async Task ValidateParentEntityAsync(CategoryEntity entity)
+        {
+            if (entity.Id == entity.ParentId)
+            {
+                throw new Exception("An entity cannot be a parent to itself");
+            }
+
+            if (!await _unitOfWork.CategoryRepository.IsExistsAsync(entity.ParentId.Value))
+            {
+                throw new EntityNotFountException(nameof(entity.ParentId));
+            }
         }
     }
 }

@@ -6,32 +6,19 @@ namespace Catalog.Controllers
 {
     public class ProductController : Controller
     {
-        private readonly ILogger<ProductController> _logger;
-        private readonly ICatalogService _catalogService;
+        private readonly IProductService _catalogService;
 
-        public ProductController(
-            ICatalogService catalogService,
-            ILogger<ProductController> logger)
+        public ProductController(IProductService catalogService)
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _catalogService = catalogService ?? throw new ArgumentNullException(nameof(catalogService));
         }
 
         [HttpGet]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> Get(int id)
         {
-            var product = _catalogService.Get(id).ToMvc();
+            var product = (await _catalogService.GetAsync(id)).ToMvc();
 
             return View(product);
-        }
-
-        public IActionResult Index()
-        {
-            var products = _catalogService.GetAll()
-                .Select(product => product.ToMvc())
-                .ToArray();
-
-            return View(products);
         }
     }
 }
