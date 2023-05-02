@@ -13,6 +13,7 @@ builder.Services.AddControllers();
 builder.Services.ConfigureServices();
 builder.Services.ConfigureRepositories();
 builder.Services.ConfigureFilters();
+builder.Services.ConfigureSettings();
 
 //Add mappers
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());

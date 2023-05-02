@@ -12,6 +12,7 @@ namespace Catalog.Business.AutoMappers
         {
             CreateMap<Product, ProductEntity>();
             CreateMap<ProductEntity, Product>();
+            CreateMap<ProductEntity, ProductMessage>();
             CreateMap<ProductQueryEntity, ProductFilter>();
         }
     }

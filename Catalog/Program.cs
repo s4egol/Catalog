@@ -13,6 +13,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.ConfigureServices();
 builder.Services.ConfigureRepositories();
 builder.Services.ConfigureFilters();
+builder.Services.ConfigureSettings();
 
 var app = builder.Build();
 

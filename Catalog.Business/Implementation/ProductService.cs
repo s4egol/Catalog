@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Catalog.Business.Configuration;
 using Catalog.Business.Exceptions;
 using Catalog.Business.Interfaces;
 using Catalog.Business.Models;
@@ -12,12 +13,19 @@ namespace Catalog.Business.Implementation
     public class ProductService : IProductService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IRabbitMqService _rabbitMqService;
+        private readonly AppSettings _appSettings;
         private readonly IMapper _mapper;
 
-        public ProductService(IUnitOfWork unitOfWork, IMapper mapper)
+        public ProductService(IUnitOfWork unitOfWork,
+            IRabbitMqService rabbitMqService,
+            AppSettings appSettings,
+            IMapper mapper)
         {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _rabbitMqService = rabbitMqService ?? throw new ArgumentNullException(nameof(rabbitMqService));
+            _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
         }
 
         public async Task AddAsync(ProductEntity entity)
@@ -39,6 +47,9 @@ namespace Catalog.Business.Implementation
             await ValidateUpdatedEntityAsync(entity);
 
             await _unitOfWork.ProductRepository.UpdateAsync(_mapper.Map<Product>(entity));
+            
+            SendMessageInQueue(entity);
+
             await _unitOfWork.CommitAsync();
         }
 
@@ -84,5 +95,18 @@ namespace Catalog.Business.Implementation
 
         private Task<bool> IsCategoryExistsAsync(int categoryId)
             => _unitOfWork.CategoryRepository.IsExistsAsync(categoryId);
+
+        private void SendMessageInQueue(ProductEntity product)
+        {
+            try
+            {
+                _rabbitMqService.SendMessage(_appSettings.RabbitMqServerSettings.Queue,
+                    _mapper.Map<ProductMessage>(product));
+            }
+            catch(Exception ex)
+            {
+                throw new Exception("Rebbit Mq Server isn't available", ex);
+            }
+        }
     }
 }
